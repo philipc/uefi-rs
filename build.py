@@ -37,6 +37,7 @@ SETTINGS = {
     'qemu_binary': {
         'x86_64': 'qemu-system-x86_64',
         'aarch64': 'qemu-system-aarch64',
+        'riscv64': 'qemu-system-riscv64',
     },
     # Path to directory containing `OVMF_{CODE/VARS}.fd` (for x86_64),
     # or `*-pflash.raw` (for AArch64).
@@ -61,6 +62,14 @@ def get_target_triple():
     arch = SETTINGS['arch']
     return f'{arch}-unknown-uefi'
 
+def get_target_triple_option():
+    arch = SETTINGS['arch']
+    if arch == 'riscv64':
+        triple = 'riscv64-unknown-uefi.json'
+    else:
+        triple = get_target_triple()
+    return triple
+
 def build_dir():
     'Returns the directory where Cargo places the build artifacts'
     return target_dir() / get_target_triple() / SETTINGS['config']
@@ -72,7 +81,7 @@ def esp_dir():
 def run_tool(tool, *flags):
     'Runs cargo-<tool> with certain arguments.'
 
-    target = get_target_triple()
+    target = get_target_triple_option()
     cmd = ['cargo', tool, '--target', target, *flags]
 
     if SETTINGS['verbose']:
@@ -107,14 +116,23 @@ def build(*test_flags):
     # Copy the built test runner file to the right directory for running tests.
     built_file = build_dir() / 'uefi-test-runner.efi'
 
+    arch = SETTINGS['arch']
+    if arch == 'riscv64':
+        sp.run([
+            'elftoefi',
+            build_dir() / 'uefi-test-runner',
+            built_file,
+        ], check=True)
+
     boot_dir = esp_dir() / 'EFI' / 'Boot'
     boot_dir.mkdir(parents=True, exist_ok=True)
 
-    arch = SETTINGS['arch']
     if arch == 'x86_64':
         output_file = boot_dir / 'BootX64.efi'
     elif arch == 'aarch64':
         output_file = boot_dir / 'BootAA64.efi'
+    elif arch == 'riscv64':
+        output_file = boot_dir / 'BootRV64.efi'
 
     shutil.copy2(built_file, output_file)
 
@@ -302,6 +320,11 @@ def run_qemu():
             # A72 is a very generic 64-bit ARM CPU in the wild
             '-cpu', 'cortex-a72',
         ])
+    elif arch == 'riscv64':
+        qemu_flags.extend([
+            '-machine', 'virt',
+            '-cpu', 'rv64',
+        ])
     else:
         raise NotImplementedError('Unknown arch')
 
@@ -434,7 +457,7 @@ def main():
                         choices=['build', 'run', 'doc', 'clippy', 'test'])
 
     parser.add_argument('--target', help='target to build for (default: %(default)s)', type=str,
-                        choices=['x86_64', 'aarch64'], default='x86_64')
+                        choices=['x86_64', 'aarch64', 'riscv64'], default='x86_64')
 
     parser.add_argument('--verbose', '-v', help='print commands before executing them',
                         action='store_true')

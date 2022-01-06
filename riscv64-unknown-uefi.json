@@ -1,0 +1,39 @@
+{
+  "abi-return-struct-as-int": true,
+  "allows-weak-linkage": false,
+  "arch": "riscv64",
+  "code-model": "medium",
+  "cpu": "generic-rv64",
+  "data-layout": "e-m:e-p:64:64-i64:64-i128:128-n64-S128",
+  "disable-redzone": true,
+  "eh-frame-header": false,
+  "emit-debug-gdb-scripts": false,
+  "executables": true,
+  "features": "+m,+a,+f,+d,+c",
+  "linker": "rust-lld",
+  "linker-flavor": "ld.lld",
+  "llvm-target": "riscv64",
+  "max-atomic-width": 64,
+  "os": "uefi",
+  "panic-strategy": "abort",
+  "pre-link-args": {
+    "ld.lld": [
+      "--entry", "efi_main",
+      "--nmagic",
+      "--emit-relocs",
+      "--no-relax",
+      "-z", "common-page-size=0x40",
+      "--defsym=COMMONPAGESIZE=0x40",
+      "--defsym=PECOFF_HEADER_SIZE=0x220",
+      "-TGccBase.lds"
+    ]
+  },
+  "singlethread": true,
+  "split-debuginfo": "packed",
+  "stack-probes": {
+    "kind": "call"
+  },
+  "target-c-int-width": "32",
+  "target-endian": "little",
+  "target-pointer-width": "64"
+}
